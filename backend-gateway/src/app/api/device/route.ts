@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
   const device = await prisma.device.create({
     data: { name, status, userId },
-    select: { deviceId: true, name: true, status: true, userId: true },
+    select: { deviceId: true, name: true, status: true, userId: true, createdAt: true, updatedAt: true },
   });
 
   return NextResponse.json(device, { status: 201 });
