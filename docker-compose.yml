@@ -7,8 +7,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
       POSTGRES_DB: ${POSTGRES_DB:-db}
-    ports:
-      - "5437:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./database/00_extensions.sql:/docker-entrypoint-initdb.d/00-extensions.sql:ro
@@ -24,8 +22,6 @@ services:
     image: redis
     container_name: redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -37,14 +33,31 @@ services:
     container_name: backend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${GATEWAY_PORT:-3000}:3000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-db}
       NODE_ENV: production
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      # Redis connection for publishing task stack events
       REDIS_URL: redis://redis:6379
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  middleware:
+    build: ./robotics-middleware
+    container_name: middleware
+    restart: unless-stopped
+    ports:
+      - "${MIDDLEWARE_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-db}
+      REDIS_URL: redis://redis:6379
+      TASK_STACK_STREAM: ${TASK_STACK_STREAM:-task_stacks}
+      TASK_STACK_CONSUMER_GROUP: ${TASK_STACK_CONSUMER_GROUP:-robots}
+      TASK_STACK_CONSUMER_NAME: ${TASK_STACK_CONSUMER_NAME:-worker-1}
     depends_on:
       db:
         condition: service_healthy
