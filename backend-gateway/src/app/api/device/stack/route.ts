@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { createTaskStackBodySchema } from "@/lib/validation";
 import type { CreateTaskStackResponseDto } from "@/dtos/api";
 import { errorResponse } from "@/lib/validation";
+import { redis, TASK_STACK_STREAM } from "@/lib/redis";
 
 export async function POST(request: NextRequest) {
   const userId = requireUserId(request);
@@ -41,6 +42,20 @@ export async function POST(request: NextRequest) {
     },
     select: { stackId: true, status: true },
   });
+
+  // Publish event to Redis stream for middleware consumers
+  try {
+    await redis.xadd(
+      TASK_STACK_STREAM,
+      "*",           
+      "event", "task_stack.created",
+      "stackId", created.stackId,
+      "deviceId", resolvedDeviceId,
+      "userId", userId,
+    );
+  } catch (e) {
+    console.error('Failed to publish to Redis stream', e);
+  }
 
   const response: CreateTaskStackResponseDto = { stackId: created.stackId, status: created.status as any };
   return NextResponse.json(response, { status: 201 });

@@ -19,7 +19,7 @@ CREATE TYPE taskstack_status AS ENUM ('pending', 'in_progress', 'completed', 'fa
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = now();
+    NEW.updated_at = clock_timestamp();
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -28,12 +28,12 @@ $$ LANGUAGE plpgsql;
 -- USERS TABLE
 -- ========================
 CREATE TABLE users (
-    user_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(), -- UUID
-    email      TEXT NOT NULL UNIQUE,                       -- unique identifier for login
-    name       TEXT NOT NULL,                              -- user name
-    password   TEXT NOT NULL,                              -- hashed password
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),         -- timestamp of account creation
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()          -- updated via trigger
+    user_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),              -- UUID
+    email      TEXT NOT NULL UNIQUE,                                    -- unique identifier for login
+    name       TEXT NOT NULL,                                           -- user name
+    password   TEXT NOT NULL,                                           -- hashed password
+    created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),          -- timestamp of account creation
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()           -- updated via trigger
 );
 
 -- ========================
@@ -44,8 +44,8 @@ CREATE TABLE devices (
     name       TEXT NOT NULL,                                               -- human-friendly name
     status     device_status NOT NULL,                                      -- enum: online/offline
     user_id    UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,   -- FK to User
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),                          -- timestamp of device registration
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()                           -- updated via trigger
+    created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),              -- timestamp of device registration
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()               -- updated via trigger
 );
 
 -- Index for faster lookups of devices by user
@@ -59,8 +59,8 @@ CREATE TABLE task_stacks (
     device_id  UUID NOT NULL REFERENCES devices(device_id) ON DELETE CASCADE,   -- FK to Device
     tasks      JSONB NOT NULL,                                                  -- JSON array of tasks (pick/place)
     status     taskstack_status NOT NULL DEFAULT 'pending',                     -- lifecycle state
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),                              -- timestamp of stack creation
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()                               -- updated via trigger
+    created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),                  -- timestamp of stack creation
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()                   -- updated via trigger
 );
 
 -- Indexes for performance
