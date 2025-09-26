@@ -3,12 +3,10 @@ services:
     image: postgres
     container_name: db
     restart: unless-stopped
-    ports:
-      - "5437:5432"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-app_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password}
-      POSTGRES_DB: ${POSTGRES_DB:-app_db}
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-db}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./database/00_extensions.sql:/docker-entrypoint-initdb.d/00-extensions.sql:ro
@@ -19,6 +17,21 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  backend:
+    build: ./backend-gateway
+    container_name: backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:

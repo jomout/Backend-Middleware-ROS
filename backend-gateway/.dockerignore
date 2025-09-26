@@ -1,0 +1,35 @@
+# Dependencies
+node_modules
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build output
+.next
+out
+coverage
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# VCS
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Others
+*.swp
+*.swm
+*.swo
