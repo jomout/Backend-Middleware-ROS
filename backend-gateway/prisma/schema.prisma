@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DeviceStatus {
+  online
+  offline
+  @@map("device_status")
+}
+
+enum TaskStackStatus {
+  pending
+  in_progress
+  completed
+  failed
+  @@map("taskstack_status")
+}
+
+model Device {
+  deviceId   String         @id @default(dbgenerated("gen_random_uuid()")) @map("device_id")
+  name       String
+  status     DeviceStatus
+  userId     String         @map("user_id")
+  owner      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskStacks TaskStack[]
+
+  @@index([userId], map: "idx_device_user_id")
+  @@map("devices")
+}
+
+model TaskStack {
+  stackId   String          @id @default(dbgenerated("gen_random_uuid()")) @map("stack_id")
+  deviceId  String          @map("device_id")
+  device    Device          @relation(fields: [deviceId], references: [deviceId], onDelete: Cascade)
+  tasks     Json            // Array of pick/place tasks stored as JSON
+  status    TaskStackStatus @default(pending)
+  createdAt DateTime        @default(now())      @map("created_at")
+
+  @@index([deviceId], map: "idx_taskstack_device_id")
+  @@index([status], map: "idx_taskstack_status")
+  @@map("task_stacks")
+}
+
+model User {
+  id        String   @id @default(dbgenerated("gen_random_uuid()"))
+  email     String   @unique
+  name      String
+  password  String   // hashed password
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  devices   Device[]
+
+  @@map("users")
+}
