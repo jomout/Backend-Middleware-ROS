@@ -1,5 +1,5 @@
 {
-  "name": "ros-api",
+  "name": "backend_gateway",
   "version": "0.1.0",
   "private": true,
   "scripts": {
