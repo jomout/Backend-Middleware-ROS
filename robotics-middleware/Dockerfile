@@ -1,9 +1,11 @@
-# Base image
-FROM python:3.13-slim AS base
+# Base image with ROS 2 Jazzy (Ubuntu 24.04, Python 3.12)
+FROM ros:jazzy-ros-core AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/root/.local/bin:${PATH}"
+
+ENV ROS_DISTRO=jazzy
 
 WORKDIR /app
 
@@ -15,11 +17,13 @@ FROM base AS dependencies
 
 # Build deps
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-       curl \
-       build-essential \
-       libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+     && apt-get install -y --no-install-recommends \
+         curl \
+         ca-certificates \
+         build-essential \
+         libpq-dev \
+         python3-venv \
+     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
 ADD https://astral.sh/uv/install.sh /uv-installer.sh
@@ -69,5 +73,5 @@ COPY --from=builder /app /app
 # Expose FastAPI default port
 EXPOSE 8000
 
-# Start FastAPI with Uvicorn
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Ensure ROS 2 environment is sourced before starting FastAPI so rclpy works
+CMD ["/bin/bash", "-lc", "source /opt/ros/${ROS_DISTRO}/setup.bash && python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"]
