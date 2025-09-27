@@ -2,8 +2,9 @@ import logging
 from sqlalchemy.orm import Session
 from .models import Device, TaskStack, TaskStackStatus
 from .ros_bridge import bridge
+from .logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 async def process_task_stack(stack: TaskStack, db: Session):

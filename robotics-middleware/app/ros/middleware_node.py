@@ -6,11 +6,11 @@ from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 import asyncio
 import uuid
-import logging
+from app.core.logging import get_logger
 
 from app.core.config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Load ROS topic settings from environment/config

@@ -8,6 +8,11 @@ from .config import settings
 from .db import SessionLocal
 from .models import Device, DeviceStatus, TaskStack, TaskStackStatus
 
+from .logging import get_logger
+
+logger = get_logger(__name__)
+
+
 # ROS settings
 ROS_ENABLED = settings.ros_enabled
 
@@ -17,8 +22,6 @@ STREAM_NAME = settings.task_stack_stream
 CONSUMER_GROUP = settings.task_stack_consumer_group
 CONSUMER_NAME = settings.task_stack_consumer_name
 REDIS_URL = settings.redis_url
-
-logger = logging.getLogger(__name__)
 
 
 async def ensure_group(r: redis.Redis):
@@ -91,7 +94,7 @@ async def consume_stream():
                             if stack:
                                 if ROS_ENABLED:
                                     # Process the task stack via ROS
-                                    from ros_worker import process_task_stack
+                                    from .ros_worker import process_task_stack
                                 
                                     await process_task_stack(stack, db)
                                 else:

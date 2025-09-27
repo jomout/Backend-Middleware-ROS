@@ -8,8 +8,9 @@ import rclpy
 from rclpy.executors import SingleThreadedExecutor, ExternalShutdownException
 
 from app.ros.middleware_node import MiddlewareNode
+from .logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RosBridge:

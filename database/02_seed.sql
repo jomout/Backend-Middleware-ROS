@@ -45,22 +45,22 @@ WHERE u.email = 'user2@example.com'
 INSERT INTO task_stacks (device_id, tasks, status)
 SELECT d.device_id,
        '[{"type":"pick","from":{"x":1,"y":2,"z":3}},{"type":"place","to":{"x":4,"y":5,"z":6}}]'::jsonb,
-       'pending'
+       'completed'
 FROM devices d
 JOIN users u ON u.user_id = d.user_id
 WHERE u.email = 'user1@example.com' AND d.name = 'bot-1'
   AND NOT EXISTS (
-    SELECT 1 FROM task_stacks s WHERE s.device_id = d.device_id AND s.status = 'pending'
+    SELECT 1 FROM task_stacks s WHERE s.device_id = d.device_id AND s.status = 'completed'
   );
 
 -- One stack for user2-bot-1
 INSERT INTO task_stacks (device_id, tasks, status)
 SELECT d.device_id,
        '[{"type":"place","to":{"x":7,"y":8,"z":9}}]'::jsonb,
-       'pending'
+       'completed'
 FROM devices d
 JOIN users u ON u.user_id = d.user_id
 WHERE u.email = 'user2@example.com' AND d.name = 'bot-1'
   AND NOT EXISTS (
-    SELECT 1 FROM task_stacks s WHERE s.device_id = d.device_id AND s.status = 'pending'
+    SELECT 1 FROM task_stacks s WHERE s.device_id = d.device_id AND s.status = 'completed'
   );
