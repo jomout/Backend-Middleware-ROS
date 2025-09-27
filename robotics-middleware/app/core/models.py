@@ -7,16 +7,21 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 class DeviceStatus(enum.Enum):
+    """Represents the status of a device."""
     online = "online"
     offline = "offline"
 
 class TaskStackStatus(enum.Enum):
+    """Represents the status of a task stack."""
     pending = "pending"
     in_progress = "in_progress"
     completed = "completed"
     failed = "failed"
 
 class User(Base):
+    """
+    Represents a user in the system.
+    """
     __tablename__ = "users"
 
     user_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -27,6 +32,9 @@ class User(Base):
     updated_at = Column(TIMESTAMP, nullable=False)
 
 class Device(Base):
+    """
+    Represents a robotic device.
+    """
     __tablename__ = "devices"
 
     device_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -37,6 +45,9 @@ class Device(Base):
     updated_at = Column(TIMESTAMP, nullable=False)
 
 class TaskStack(Base):
+    """
+    Represents a stack of tasks for a robotic device.
+    """
     __tablename__ = "task_stacks"
 
     stack_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
