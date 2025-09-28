@@ -5,20 +5,17 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 import asyncio
-import uuid
+from uuid import UUID
 from app.core.logging import get_logger
 
 from app.core.config import settings
+from app.core.dto import Command, Feedback
+from pydantic import ValidationError
 
 logger = get_logger(__name__)
 
 
-# Load ROS topic settings from environment/config
-COMMAND_TOPIC_1 = settings.command_topic_1
-FEEDBACK_TOPIC_1 = settings.feedback_topic_1
-
-COMMAND_TOPIC_2 = settings.command_topic_2
-FEEDBACK_TOPIC_2 = settings.feedback_topic_2
+DEVICES = settings.devices
 
 # QoS settings for command topics
 # Reliable delivery, keep last 10 messages
@@ -44,11 +41,18 @@ class MiddlewareNode(Node):
     def __init__(self):
         super().__init__('middleware_node')
         logger.info('Middleware Node has been started.')
-        self.publisher_1 = self.create_publisher(String, COMMAND_TOPIC_1, COMMAND_QOS)
-        self.subscriber_1 = self.create_subscription(String, FEEDBACK_TOPIC_1, self.feedback_callback, FEEDBACK_QOS)
-        
-        self.publisher_2 = self.create_publisher(String, COMMAND_TOPIC_2, COMMAND_QOS)
-        self.subscriber_2 = self.create_subscription(String, FEEDBACK_TOPIC_2, self.feedback_callback, FEEDBACK_QOS)
+
+        self.device_publishers = {}
+        self.device_subscribers = {}
+
+        for device_id, config in DEVICES.items():
+            command_topic = config.command_topic
+            feedback_topic = config.feedback_topic
+            logger.info(f"Setting up device {device_id} with command topic {command_topic} and feedback topic {feedback_topic}")
+
+            self.device_publishers[device_id] = self.create_publisher(String, command_topic, COMMAND_QOS)
+            self.device_subscribers[device_id] = self.create_subscription(String, feedback_topic, self.feedback_callback, FEEDBACK_QOS)
+
 
         # For coordinating async waits from outside the ROS thread
         self._loop: Optional[asyncio.AbstractEventLoop] = None
@@ -71,78 +75,56 @@ class MiddlewareNode(Node):
             msg (String): The incoming ROS message containing feedback in JSON format.
         """
         try:
-            payload = json.loads(msg.data)
+            feedback = Feedback.model_validate_json(msg.data)
+        except ValidationError as ve:
+            logger.warning(f"Invalid feedback JSON: {ve.errors()} | {msg.data}")
+            return
         except Exception:
             logger.warning(f"Feedback not JSON: {msg.data}")
             return
 
-        # Extract relevant fields from the payload
-        event = payload.get("event")
-        stack_id = payload.get("stackId")
-        task_index = payload.get("taskIndex")
+        event = feedback.event
+        stack_id = str(feedback.stack_id)
+        task_index = feedback.task_index
 
-        if event not in ("task.completed", "task.failed"):
-            logger.warning(f"Unknown feedback event: {event}")
-            return
-
-        logger.info(f'Received feedback: event={event} stack={stack_id} taskIndex={task_index} data={payload}')
+        logger.info(
+            f'Received feedback: event={event} stack={stack_id} taskIndex={task_index} data={feedback.model_dump()}'
+        )
 
         # If we have a waiter for this stack/task, resolve it
-        if stack_id is not None and isinstance(task_index, int):
-            key = (stack_id, task_index)
-            fut: Optional[asyncio.Future] = self._waiters.get(key)
-            if fut and not fut.done():
-                # Resolve based on event type
-                result = {
-                    "event": event,
-                    "payload": payload,
-                }
-                if self._loop:
-                    self._loop.call_soon_threadsafe(fut.set_result, result)
-                else:
-                    # Fallback (may not be thread-safe if no loop attached)
-                    try:
-                        fut.set_result(result)
-                    except Exception as e:
-                        logger.error(f"Failed to set future result: {e}")
+        key = (stack_id, task_index)
+        future: Optional[asyncio.Future] = self._waiters.get(key)
+        if future and not future.done():
+            self._loop.call_soon_threadsafe(future.set_result, feedback)
 
 
-    def publish_command(self, payload: Dict):
+    def publish_command(self, payload: Command, device_id: UUID):
         """
         Publish a command to the appropriate robot.
 
         Args:
-            payload (Dict): The command payload to publish, must include 'deviceId'.
+            payload (Command): The command payload to publish. Validated against the Command DTO.
         """
+
         msg = String()
-        msg.data = json.dumps(payload)
+        msg.data = payload.model_dump_json()
 
-        # Determine which publisher to use based on deviceName
-        if payload.get("deviceName") == "robot_1":
-            self.publisher_1.publish(msg)
-            logger.info(f'Publishing: "{msg.data}"')
-
-        elif payload.get("deviceName") == "robot_2":
-            self.publisher_2.publish(msg)
-            logger.info(f'Publishing: "{msg.data}"')
-
-        else:
-            logger.error(f"Unknown deviceName in payload: {payload.get('deviceName')}")
+        self.device_publishers[device_id].publish(msg)
+        logger.info(f'Publishing to {device_id}: "{msg.data}"')
 
 
-    async def execute_task_stack(self, *, device_name: str, stack_id: uuid.UUID, tasks: list, timeout: float = 20.0) -> bool:
+    async def execute_task_stack(self, *, device_id: UUID, stack_id: UUID, tasks: list, timeout: float = 20.0) -> bool:
         """
         Publish each task to the appropriate robot and wait for completion feedback.
         Returns True if all tasks completed, False if any failed or timed out.
 
         Args:
-            device_name (str): The name of the robot device (e.g., "robot_1").
-            stack_id (uuid.UUID): The unique identifier for the task stack.
+            device_id (UUID): The unique identifier for the robot device.
+            stack_id (UUID): The unique identifier for the task stack.
             tasks (list): List of task dictionaries to execute.
             timeout (float): Timeout in seconds to wait for each task's feedback.
         """
-        stack_id_str = str(stack_id)
-        logger.info(f"[ROS] Starting execution of stack {stack_id_str} on {device_name} with {len(tasks)} tasks")
+        logger.info(f"[ROS] Starting execution of stack {stack_id} on Robot [{device_id}] with {len(tasks)} tasks")
 
         # All tasks must complete successfully
         all_ok = True
@@ -150,35 +132,32 @@ class MiddlewareNode(Node):
         # Publish all task commands and wait for their completion
         for idx, task in enumerate(tasks):
             
-            # Validate task type
-            ttype = task.get("type")
-            if ttype not in ("pick", "place"):
-                logger.error(f"Unknown task type {ttype} in stack {stack_id_str}")
+            # Build and validate command DTO
+            try:
+                cmd = Command(
+                    event="task.execute",
+                    stack_id=stack_id,
+                    task_index=idx,
+                    task=task,
+                )
+            except ValidationError as e:
+                logger.error(f"[ROS] Invalid task/command for stack {stack_id}, task {idx}: {e.errors()}")
                 all_ok = False
                 break
             
-            # Prepare command
-            cmd = {
-                "deviceName": device_name,
-                "event": "task.execute",
-                "stackId": stack_id_str,
-                "taskIndex": idx,
-                "task": task,
-            }
-            
             # Create waiter future
-            key = (stack_id_str, idx)
-            fut = asyncio.get_running_loop().create_future()
-            self._waiters[key] = fut
-            
+            key = (str(stack_id), idx)
+            future = asyncio.get_running_loop().create_future()
+            self._waiters[key] = future
+
             # Publish command
-            self.publish_command(cmd)
+            self.publish_command(cmd, device_id)
 
             # Wait for feedback
             try:
-                result = await asyncio.wait_for(fut, timeout=timeout)
+                result: Feedback = await asyncio.wait_for(future, timeout=timeout)
             except asyncio.TimeoutError:
-                logger.error(f"Timeout waiting for feedback for stack {stack_id_str}, task {idx}")
+                logger.error(f"[ROS] Timeout waiting for feedback for stack {stack_id}, task {idx}")
                 all_ok = False
                 break
             finally:
@@ -186,10 +165,9 @@ class MiddlewareNode(Node):
                 self._waiters.pop(key, None)
 
             # Check result
-            if result.get("event") != "task.completed":
-                error = result.get("error")
-                if error:
-                    logger.error(f"Task {idx} failed for stack {stack_id_str}: {error}")
+            if result.event != "task.completed":
+                if result.error:
+                    logger.error(f"[ROS] Task {idx} failed for stack {stack_id}: {result.error}")
                 all_ok = False
                 break
 
@@ -198,6 +176,11 @@ class MiddlewareNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     middleware_node = MiddlewareNode()
-    rclpy.spin(middleware_node)
-    middleware_node.destroy_node()
-    rclpy.shutdown()
+
+    try:
+        rclpy.spin(middleware_node)
+    except Exception as e:
+        logger.error(f"[ROS] Error occurred: {e}")
+    finally:
+        middleware_node.destroy_node()
+        rclpy.shutdown()

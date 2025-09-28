@@ -1,10 +1,17 @@
+import json
+from typing import Dict
+from uuid import UUID
+from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings
+
+class DeviceConfig(BaseModel):
+    command_topic: str
+    feedback_topic: str
 
 class Settings(BaseSettings):
     """
     Application configuration settings.
     Loaded from environment variables or a .env file.
-    Use 'settings' instance to access configuration values.
     """
     # Database settings
     database_url: str
@@ -18,11 +25,34 @@ class Settings(BaseSettings):
     # ROS settings
     ros_enabled: bool = False
 
-    # ROS topics for different robots
-    command_topic_1: str = "/robot_1/commands"
-    feedback_topic_1: str = "/robot_1/feedback"
-    command_topic_2: str = "/robot_2/commands"
-    feedback_topic_2: str = "/robot_2/feedback"
+    # Devices as a dict keyed by UUID
+    devices: Dict[UUID, DeviceConfig] = {}
+
+    @field_validator("devices", mode="before")
+    @classmethod
+    def parse_devices(cls, v):
+        # If it comes in as a JSON string, parse it
+        if isinstance(v, str):
+            try:
+                v = json.loads(v)
+            except Exception:
+                raise ValueError("Invalid JSON for devices configuration")
+
+        # If it's already a list, convert it to a dict
+        if isinstance(v, list):
+            try:
+                return {
+                    UUID(item["device_id"]): {
+                        "command_topic": item["command_topic"],
+                        "feedback_topic": item["feedback_topic"],
+                    }
+                    for item in v
+                }
+            except Exception as e:
+                raise ValueError(f"Invalid devices list format: {e}")
+
+        # If it's already a dict, let Pydantic handle conversion
+        return v
 
     class Config:
         env_file = ".env"

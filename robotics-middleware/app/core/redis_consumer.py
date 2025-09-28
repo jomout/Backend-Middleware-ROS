@@ -7,6 +7,7 @@ import redis.asyncio as redis
 from .config import settings
 from .db import SessionLocal
 from .models import Device, DeviceStatus, TaskStack, TaskStackStatus
+from .dto import RedisMessage
 
 from .logging import get_logger
 
@@ -61,13 +62,14 @@ async def consume_stream():
                     stack = None
                     success = False
 
-                    device_id = fields.get("deviceId")
-                    stack_id = fields.get("stackId")
-                    event = fields.get("event")
-
-                    if not device_id or not stack_id or not event:
-                        logger.warning(f"Invalid message fields: {fields}")
-                        # Ack and skip
+                    # Parse fields
+                    try:
+                        message = RedisMessage.model_validate(fields)
+                        device_id = message.device_id
+                        stack_id = message.stack_id
+                        event = message.event
+                    except Exception as e:
+                        logger.warning(f"Failed to parse message fields: {e}")
                         await r.xack(STREAM_NAME, CONSUMER_GROUP, msg_id)
                         continue
 
@@ -105,9 +107,7 @@ async def consume_stream():
                             ).first()
 
                             if not stack:
-                                logger.warning(
-                                    f"Task stack {stack_id} for device {device_id} not found or not pending"
-                                )
+                                logger.warning(f"Task stack {stack_id} for device {device_id} not found or not pending")
                                 await r.xack(STREAM_NAME, CONSUMER_GROUP, msg_id)
                                 continue
 
@@ -118,10 +118,10 @@ async def consume_stream():
                             # Process stack
                             if ROS_ENABLED:
                                 from .ros_worker import process_task_stack
-                                success = await process_task_stack(device.name, stack)
+                                success = await process_task_stack(stack)
                             else:
                                 from .worker import process_task_stack
-                                success = await process_task_stack(device.name, stack)
+                                success = await process_task_stack(stack)
 
                         except Exception as e:
                             logger.error(f"Error processing stack {stack_id} for device {device_id}: {e}")

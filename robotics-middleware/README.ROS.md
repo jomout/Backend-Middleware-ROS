@@ -1,4 +1,4 @@
-# ROS communication contract
+# ROS communication report
 
 This document describes how the Robotics Middleware and robot nodes communicate over ROS 2. It captures the topics, QoS, message formats, and expected request/response sequence. It is based on the current implementation in `app/ros/middleware_node.py` and the demo robots in `../ros_robots/`.
 
@@ -50,7 +50,7 @@ All fields are case-sensitive. Unknown/extra fields are ignored by the current m
 
 **Command** (published by middleware to a robot command topic):
 
-- `deviceName` (string, required): target robot (e.g., `"robot_1"` or `"robot_2"`). Used to select the topic in middleware.
+- `deviceName` (string, required): target robot (e.g., `"robot_1"` or `"robot_2"`). Used to select the topic in middleware. **For more scalability change to `deviceId`.**
 - `event` (string, required): must be `"task.execute"`.
 - `stackId` (string, required): UUID of the task stack. Correlation key.
 - `taskIndex` (integer, required): 0-based index of the task in the stack. Correlation key.
@@ -59,10 +59,10 @@ All fields are case-sensitive. Unknown/extra fields are ignored by the current m
 **Feedback** (published by robot to its feedback topic):
 
 - `event` (string, required): `"task.completed"` on success or `"task.failed"` on failure.
-- `deviceId` (string, recommended): robot identifier (demo robots use `"robot_1"`/`"robot_2"`).
+- `deviceName` (string, required): robot name (demo robots use `"robot_1"`/`"robot_2"`). **For more scalability change to `deviceId`.**
 - `stackId` (string, required): must match the command.
 - `taskIndex` (integer, required): must match the command.
-- Additional fields (optional): any telemetry or error details.
+- `error` (string, optional): In case of error, error field is provided.
 
 Correlation: Middleware matches feedback to the pending command using the tuple `(stackId, taskIndex)`.
 
@@ -166,3 +166,4 @@ ros2 topic echo /robot_1/feedback
 
 - Middleware node: `app/ros/middleware_node.py`
 - Demo robots: `../ros_robots/robot_1_node.py`, `../ros_robots/robot_2_node.py`
+- DTO schemas: `app/core/dto.py` (Command, Feedback)
