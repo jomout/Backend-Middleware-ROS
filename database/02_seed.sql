@@ -16,28 +16,28 @@ ON CONFLICT (email) DO NOTHING;
 -- Devices ---------------------------------------------------------
 -- Device for User1
 INSERT INTO devices (name, status, user_id)
-SELECT 'bot-1', 'online', u.user_id
+SELECT 'robot-1', 'online', u.user_id
 FROM users u
 WHERE u.email = 'user1@example.com'
   AND NOT EXISTS (
-    SELECT 1 FROM devices d WHERE d.name = 'bot-1' AND d.user_id = u.user_id
+    SELECT 1 FROM devices d WHERE d.name = 'robot-1' AND d.user_id = u.user_id
   );
 
 INSERT INTO devices (name, status, user_id)
-SELECT 'bot-2', 'offline', u.user_id
+SELECT 'robot-2', 'offline', u.user_id
 FROM users u
 WHERE u.email = 'user1@example.com'
   AND NOT EXISTS (
-    SELECT 1 FROM devices d WHERE d.name = 'bot-2' AND d.user_id = u.user_id
+    SELECT 1 FROM devices d WHERE d.name = 'robot-2' AND d.user_id = u.user_id
   );
 
 -- Device for User2
 INSERT INTO devices (name, status, user_id)
-SELECT 'bot-1', 'online', u.user_id
+SELECT 'robot-3', 'online', u.user_id
 FROM users u
 WHERE u.email = 'user2@example.com'
   AND NOT EXISTS (
-    SELECT 1 FROM devices d WHERE d.name = 'bot-1' AND d.user_id = u.user_id
+    SELECT 1 FROM devices d WHERE d.name = 'robot-3' AND d.user_id = u.user_id
   );
 
 -- Task stacks -----------------------------------------------------

@@ -70,13 +70,3 @@ export const db = {
     return [...taskStacks.values()].filter(s => s.deviceId === deviceId);
   },
 };
-
-// Seed some demo data for easier testing in dev
-(() => {
-  if (devices.size > 0) return;
-  const userA = 'user_a';
-  const userB = 'user_b';
-  db.createDevice({ name: 'device1', status: 'online', userId: userA, deviceId: 'dev_1' });
-  db.createDevice({ name: 'device2', status: 'offline', userId: userA, deviceId: 'dev_2' });
-  db.createDevice({ name: 'device3', status: 'online', userId: userB, deviceId: 'dev_3' });
-})();

@@ -1,12 +1,10 @@
-// Core entity types representing the in-memory DB schema
-
 export type DeviceStatus = 'online' | 'offline';
 
 export interface DeviceEntity {
   deviceId: string;
   name: string;
   status: DeviceStatus;
-  userId: string; // owner relationship
+  userId: string;
 }
 
 export type TaskStackStatus = 'pending' | 'in_progress' | 'completed' | 'failed';
@@ -20,7 +18,7 @@ export type Task = PickTask | PlaceTask;
 
 export interface TaskStackEntity {
   stackId: string;
-  deviceId: string; // relationship to device
+  deviceId: string;
   tasks: Task[];
   status: TaskStackStatus;
   createdAt: number;

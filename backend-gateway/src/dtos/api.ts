@@ -2,7 +2,7 @@ import type { DeviceStatus, Task, TaskStackStatus } from './entities';
 
 // POST /api/device/stack
 export interface CreateTaskStackBodyDto {
-  // deviceId is optional; if omitted, the server should infer from auth context
+  // deviceId is optional. If omitted, will be inferred if user has exactly one device
   deviceId?: string;
   tasks: Task[];
 }

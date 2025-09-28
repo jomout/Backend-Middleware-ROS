@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { registerSchema, errorResponse } from '@/lib/validation';
 import { hashPassword, signJwt } from '@/lib/jwt';
 import { flattenError } from 'zod';
+import { logger } from '@/lib/logger';
 
 /**
  * User registration handler
@@ -10,9 +11,11 @@ import { flattenError } from 'zod';
  * @returns NextResponse with JWT token or error message
  */
 export async function POST(request: NextRequest) {
+  const log = logger.child({ route: 'POST /api/auth/register' });
   // Validate registration request body
   const parse = registerSchema.safeParse(await request.json().catch(() => ({})));
   if (!parse.success) {
+    log.warn('Validation error', { details: flattenError(parse.error) });
     return errorResponse('Validation error', 400, flattenError(parse.error));
   }
 
@@ -21,6 +24,7 @@ export async function POST(request: NextRequest) {
   // Check if the email is already registered
   const exists = await prisma.user.findUnique({ where: { email } });
   if (exists) {
+    log.warn('Email already registered', { email });
     return errorResponse('Email already registered', 409);
   }
 
@@ -30,6 +34,6 @@ export async function POST(request: NextRequest) {
 
   // Sign and return a JWT
   const token = signJwt({ sub: user.id, email: user.email });
-
+  log.info('User registered', { userId: user.id });
   return NextResponse.json({ token }, { status: 201 });
 }

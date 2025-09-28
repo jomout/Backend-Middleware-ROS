@@ -2,7 +2,6 @@
 
 This document describes the available REST endpoints under `src/app/api`.
 
-- Base URL (dev): `http://localhost:3000`
 - Authentication: JWT in `Authorization: Bearer <token>` (obtain via `/api/auth/register` or `/api/auth/login`).
 - Content type: `application/json`
 - Error format (unified):
@@ -26,7 +25,7 @@ Use JWT Bearer tokens for authenticated requests. First register or log in to ob
   - Body:
 
     ```json
-    { "email": "alice@example.com", "password": "ChangeMe123!", "name": "Alice" }
+    { "email": "user1@example.com", "password": "user1_secure_password", "name": "user1" }
     ```
 
   - Responses:
@@ -34,12 +33,14 @@ Use JWT Bearer tokens for authenticated requests. First register or log in to ob
     - 400 Validation error
     - 409 Email already registered
 
-  - cURL:
+  - cURL (capture TOKEN):
 
     ```zsh
-    curl -X POST http://localhost:3000/api/auth/register \
+    TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/register \
       -H 'Content-Type: application/json' \
-      -d '{"email":"alice@example.com","password":"ChangeMe123!","name":"Alice"}'
+      -d '{"email":"user1@example.com","password":"user1_secure_password","name":"user1"}' \
+      | jq -r .token)
+    echo $TOKEN
     ```
 
 - Log in
@@ -48,7 +49,7 @@ Use JWT Bearer tokens for authenticated requests. First register or log in to ob
   - Body:
 
     ```json
-    { "email": "alice@example.com", "password": "ChangeMe123!" }
+    { "email": "user1@example.com", "password": "user1_secure_password" }
     ```
 
   - Responses:
@@ -56,25 +57,14 @@ Use JWT Bearer tokens for authenticated requests. First register or log in to ob
     - 400 Validation error
     - 401 Invalid credentials
 
-  - cURL:
+  - cURL (capture TOKEN):
 
     ```zsh
-    curl -X POST http://localhost:3000/api/auth/login \
+    TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
       -H 'Content-Type: application/json' \
-      -d '{"email":"alice@example.com","password":"ChangeMe123!"}'
-    ```
-
-- Get current user (test token)
-
-  - Endpoint: `GET /api/auth/me`
-  - Header: `Authorization: Bearer <token>`
-  - Response: `{ "userId": "...", "email": "..." }`
-
-  - cURL:
-
-    ```zsh
-    curl http://localhost:3000/api/auth/me \
-      -H 'Authorization: Bearer <jwt>'
+      -d '{"email":"user1@example.com","password":"user1_secure_password"}' \
+      | jq -r .token)
+    echo $TOKEN
     ```
 
 ## POST /api/device/stack
@@ -132,12 +122,12 @@ Create a new task stack for a device owned by the authenticated user.
     ```
 
 - cURL examples:
-  - With explicit deviceId (Bearer token)
+  - With explicit deviceId (uses TOKEN)
 
     ```zsh
     curl -X POST http://localhost:3000/api/device/stack \
       -H 'Content-Type: application/json' \
-      -H 'Authorization: Bearer <jwt>' \
+      -H "Authorization: Bearer $TOKEN" \
       -d '{
         "deviceId": "dev_1",
         "tasks": [
@@ -147,50 +137,16 @@ Create a new task stack for a device owned by the authenticated user.
       }'
     ```
 
-  - Inferring deviceId when user owns exactly one device (Bearer token)
+  - Inferring deviceId when user owns exactly one device (uses TOKEN)
 
     ```zsh
     curl -X POST http://localhost:3000/api/device/stack \
       -H 'Content-Type: application/json' \
-      -H 'Authorization: Bearer <jwt>' \
+      -H "Authorization: Bearer $TOKEN" \
       -d '{
         "tasks": [ { "type": "pick", "from": { "x": 1, "y": 2, "z": 3 } } ]
       }'
     ```
-
----
-
-## POST /api/device
-
-Create a device owned by the authenticated user.
-
-- Auth: required (`Authorization: Bearer <token>`)
-- Body JSON:
-
-  ```json
-  { "name": "My Robot", "status": "offline" }
-  ```
-
-  - `status` is optional; defaults to `offline`. Allowed values: `online`, `offline`.
-
-- Responses:
-  - 201 Created
-
-    ```json
-    { "deviceId": "dev_xxx", "name": "My Robot", "status": "offline", "userId": "user_abc" }
-    ```
-
-  - 400 Validation error
-  - 401 Unauthorized
-
-- cURL example:
-
-  ```zsh
-  curl -X POST http://localhost:3000/api/device \
-    -H 'Content-Type: application/json' \
-    -H 'Authorization: Bearer <jwt>' \
-    -d '{"name":"My Robot","status":"offline"}'
-  ```
 
 ---
 
@@ -217,11 +173,11 @@ Return a summary for all devices belonging to the authenticated user, including 
   - 200 OK: returns empty array `[]` if the user has no devices.
   - 401 Unauthorized: `{ "error": "Unauthorized" }`
 
-- cURL example:
+  - cURL example (uses TOKEN):
 
   ```zsh
   curl -X GET http://localhost:3000/api/device/summary \
-    -H 'Authorization: Bearer <jwt>'
+    -H "Authorization: Bearer $TOKEN"
   ```
   
 ---
@@ -258,18 +214,7 @@ Return a summary for all devices belonging to the authenticated user, including 
   }
   ```
 
-- User
-
-  ```ts
-  interface User {
-    id: string;
-    email: string;
-    name?: string;
-    password: string; // hashed
-    createdAt: string; // ISO
-    updatedAt: string; // ISO
-  }
-  ```
+---
 
 ## Notes
 

@@ -3,15 +3,32 @@ import { requireUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { GetDeviceSummaryResponseDto } from "@/dtos/api";
 import { errorResponse } from "@/lib/validation";
+import { logger } from "@/lib/logger";
 
-
+/**
+ * Get a summary of devices for the authenticated user.
+ * @param request - The incoming HTTP request.
+ * @returns A JSON response with the device summary information.
+ */
 export async function GET(request: NextRequest) {
+  const log = logger.child({ route: 'GET /api/device/summary' });
+  
+  // User must be authenticated
   const userId = requireUserId(request);
-  if (!userId) return errorResponse('Unauthorized', 401);
+  if (!userId) {
+    log.warn('Unauthorized');
+    return errorResponse('Unauthorized', 401);
+  }
 
+  // Fetch devices for the user
   const devices = await prisma.device.findMany({ where: { userId }, select: { deviceId: true, name: true, status: true } });
-  if (devices.length === 0) return NextResponse.json([]);
+  if (devices.length === 0) {
+    log.info('No devices for user', { userId });
+    return NextResponse.json([]);
+  }
 
+  // Fetch task stack counts grouped by deviceId and status
+  // for statuses 'pending' and 'in_progress'
   const deviceIds = devices.map((d: { deviceId: string }) => d.deviceId);
   const stacks = await prisma.taskStack.groupBy({
     by: ['deviceId', 'status'],
@@ -19,6 +36,7 @@ export async function GET(request: NextRequest) {
     _count: { _all: true },
   });
 
+  // Map deviceId to counts of pending and in_progress tasks
   const counts = new Map<string, { pending: number; in_progress: number }>();
   for (const d of deviceIds) counts.set(d, { pending: 0, in_progress: 0 });
   for (const row of stacks) {
@@ -35,5 +53,6 @@ export async function GET(request: NextRequest) {
     activeTasks: counts.get(d.deviceId)!.in_progress,
   }));
 
+  log.info('Device summary', { userId, deviceCount: devices.length });
   return NextResponse.json(response);
 }
