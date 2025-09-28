@@ -1,0 +1,24 @@
+# Dependencies
+.venv
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# VCS
+.git
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Others
+*.swp
+*.swm
+*.swo
