@@ -4,7 +4,6 @@ import json
 import os
 from time import sleep
 from typing import Dict
-
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String 
@@ -27,6 +26,9 @@ FEEDBACK_QOS = QoSProfile(
 )
 
 class Robot1Node(Node):
+    """
+    Simulated Robot 1 Node that listens for commands and publishes feedback.
+    """
     def __init__(self):
         super().__init__('robot_1_node')
         self.get_logger().info('Robot 1 Node has been started.')
@@ -34,6 +36,10 @@ class Robot1Node(Node):
         self.subscriber = self.create_subscription(String, COMMAND_TOPIC_1, self.command_callback, COMMAND_QOS)
 
     def command_callback(self, msg: String):
+        """
+        Callback for processing incoming command messages.
+        Simulates executing the command and publishes feedback.
+        """
         self.get_logger().info('Received command: "%s"' % msg.data)
         
         try:
@@ -59,11 +65,15 @@ class Robot1Node(Node):
                     "deviceId": "robot_1",
                     "stackId": payload.get("stackId"),
                     "taskIndex": payload.get("taskIndex"),
+                    "error": str(e)
                 }
             finally:
                 self.publish_feedback(response)
 
     def publish_feedback(self, payload: Dict):
+        """
+        Publish feedback message to the feedback topic.
+        """
         msg = String()
         msg.data = json.dumps(payload)
         self.publisher.publish(msg)

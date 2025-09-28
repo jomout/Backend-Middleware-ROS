@@ -80,6 +80,11 @@ class MiddlewareNode(Node):
         event = payload.get("event")
         stack_id = payload.get("stackId")
         task_index = payload.get("taskIndex")
+
+        if event not in ("task.completed", "task.failed"):
+            logger.warning(f"Unknown feedback event: {event}")
+            return
+
         logger.info(f'Received feedback: event={event} stack={stack_id} taskIndex={task_index} data={payload}')
 
         # If we have a waiter for this stack/task, resolve it
@@ -122,7 +127,7 @@ class MiddlewareNode(Node):
             logger.info(f'Publishing: "{msg.data}"')
 
         else:
-            logger.error(f"Unknown deviceId in payload: {payload.get('deviceId')}")
+            logger.error(f"Unknown deviceName in payload: {payload.get('deviceName')}")
 
 
     async def execute_task_stack(self, *, device_name: str, stack_id: uuid.UUID, tasks: list, timeout: float = 20.0) -> bool:
@@ -182,7 +187,9 @@ class MiddlewareNode(Node):
 
             # Check result
             if result.get("event") != "task.completed":
-                logger.error(f"Task {idx} failed for stack {stack_id_str}: {result}")
+                error = result.get("error")
+                if error:
+                    logger.error(f"Task {idx} failed for stack {stack_id_str}: {error}")
                 all_ok = False
                 break
 

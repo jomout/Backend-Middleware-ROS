@@ -8,7 +8,7 @@ from .logging import get_logger
 logger = get_logger(__name__)
 
 
-async def process_task_stack(stack: TaskStack, db: Session):
+async def process_task_stack(device_name: str, stack: TaskStack, db: Session):
     """
     Simulates processing a task stack without ROS by logging actions and updating status.
     Marks the stack as in_progress, simulates task execution, and updates status to completed or failed.
@@ -18,10 +18,6 @@ async def process_task_stack(stack: TaskStack, db: Session):
         db (Session): The database session for committing status updates.  
     """
     logger.info(f"[Robot {stack.device_id}] Processing stack {stack.stack_id}")
-
-    # Mark in progress
-    stack.status = TaskStackStatus.in_progress
-    db.commit()
 
     try:
         # Simulate task execution with delay 1 second per task

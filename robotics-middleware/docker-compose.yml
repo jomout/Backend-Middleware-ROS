@@ -9,9 +9,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-db}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./database/00_extensions.sql:/docker-entrypoint-initdb.d/00-extensions.sql:ro
-      - ./database/01_init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-      - ./database/02_seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - ../database/00_extensions.sql:/docker-entrypoint-initdb.d/00-extensions.sql:ro
+      - ../database/01_init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ../database/02_seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -29,7 +29,7 @@ services:
       retries: 5
 
   backend:
-    build: ./backend-gateway
+    build: ../backend-gateway
     container_name: backend
     restart: unless-stopped
     ports:
@@ -40,6 +40,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       REDIS_URL: redis://redis:6379
+      TASK_STACK_STREAM: ${TASK_STACK_STREAM:-task_stacks}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       db:
         condition: service_healthy
@@ -47,7 +49,9 @@ services:
         condition: service_healthy
 
   middleware:
-    build: ./robotics-middleware
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: middleware
     restart: unless-stopped
     environment:
@@ -60,7 +64,7 @@ services:
       COMMAND_TOPIC_1: ${COMMAND_TOPIC_1:-/robot_1/commands}
       FEEDBACK_TOPIC_1: ${FEEDBACK_TOPIC_1:-/robot_1/feedback}
       COMMAND_TOPIC_2: ${COMMAND_TOPIC_2:-/robot_2/commands}
-      FEEDBACK_TOPIC_2: ${FEEDBACK_TOPIC_2:-/robot_2}
+      FEEDBACK_TOPIC_2: ${FEEDBACK_TOPIC_2:-/robot_2/feedback}
     depends_on:
       db:
         condition: service_healthy
@@ -76,7 +80,7 @@ services:
       - COMMAND_TOPIC_1=${COMMAND_TOPIC_1:-/robot_1/commands}
       - FEEDBACK_TOPIC_1=${FEEDBACK_TOPIC_1:-/robot_1/feedback}
     volumes:
-      - ./ros_robots/robot_1_node.py:/opt/robot_1_node.py:ro
+      - ../ros_robots/robot_1_node.py:/opt/robot_1_node.py:ro
     depends_on:
       middleware:
         condition: service_started
@@ -90,7 +94,7 @@ services:
       - COMMAND_TOPIC_2=${COMMAND_TOPIC_2:-/robot_2/commands}
       - FEEDBACK_TOPIC_2=${FEEDBACK_TOPIC_2:-/robot_2/feedback}
     volumes:
-      - ./ros_robots/robot_2_node.py:/opt/robot_2_node.py:ro
+      - ../ros_robots/robot_2_node.py:/opt/robot_2_node.py:ro
     depends_on:
       middleware:
         condition: service_started

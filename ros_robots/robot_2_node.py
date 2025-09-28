@@ -2,6 +2,7 @@
 
 import json
 import os
+from time import sleep
 from typing import Dict
 import rclpy
 from rclpy.node import Node
@@ -25,6 +26,9 @@ FEEDBACK_QOS = QoSProfile(
 )
 
 class Robot2Node(Node):
+    """
+    Simulated Robot 2 Node that listens for commands and publishes feedback.
+    """
     def __init__(self):
         super().__init__('robot_2_node')
         self.get_logger().info('Robot 2 Node has been started.')
@@ -32,24 +36,43 @@ class Robot2Node(Node):
         self.subscriber = self.create_subscription(String, COMMAND_TOPIC_2, self.command_callback, COMMAND_QOS)
 
     def command_callback(self, msg: String):
+        """
+        Callback for processing incoming command messages.
+        Simulates executing the command and publishes feedback.
+        """
         self.get_logger().info('Received command: "%s"' % msg.data)
+        
         try:
             payload = json.loads(msg.data)
         except Exception:
             return
         
+        # Simulate immediate success for task.execute
         if payload.get("event") == "task.execute":
-            response = {
-                "event": "task.completed",
-                "deviceId": "robot_2",
-                "stackId": payload.get("stackId"),
-                "taskIndex": payload.get("taskIndex"),
-            }
-            out = String()
-            out.data = json.dumps(response)
-            self.publisher.publish(out)
+            try:
+                self.get_logger().info('Executing command: "%s"' % msg.data)
+                sleep(2)
+                response = {
+                    "event": "task.completed",
+                    "deviceId": "robot_2",
+                    "stackId": payload.get("stackId"),
+                    "taskIndex": payload.get("taskIndex"),
+                }
+            except Exception as e:
+                self.get_logger().error('Error executing command: "%s"' % msg.data)
+                response = {
+                    "event": "task.failed",
+                    "deviceId": "robot_2",
+                    "stackId": payload.get("stackId"),
+                    "taskIndex": payload.get("taskIndex"),
+                }
+            finally:
+                self.publish_feedback(response)
 
     def publish_feedback(self, payload: Dict):
+        """
+        Publish feedback message to the feedback topic.
+        """
         msg = String()
         msg.data = json.dumps(payload)
         self.publisher.publish(msg)
