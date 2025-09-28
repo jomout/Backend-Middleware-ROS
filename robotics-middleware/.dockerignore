@@ -22,3 +22,7 @@ Thumbs.db
 *.swp
 *.swm
 *.swo
+
+# README files
+README*
+

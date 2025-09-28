@@ -1,32 +1,35 @@
 # Robotics Middleware
 
-A FastAPI-based worker service that consumes task events from Redis Streams, coordinates execution (optionally via ROS 2), and updates task statuses in Postgres. It’s designed to work with the Backend Gateway, which writes task stacks and emits events to the `task_stacks` Redis stream.
+A FastAPI-based worker service that consumes task events from Redis Streams, coordinates execution (optionally via ROS 2), and updates task statuses in Postgres. It works alongside the Backend Gateway, which writes task stacks and emits events to the `task_stacks` Redis stream.
 
 This middleware can run in two modes:
 
-- Non-ROS mode (default): simulates execution and marks stacks completed/failed.
+- Non-ROS mode (default in code): simulates execution and marks stacks completed/failed.
 - ROS mode: starts a background ROS 2 executor and dispatches tasks to a ROS node.
+
+Note: In Docker Compose, ROS is enabled by default via `ROS_ENABLED: ${ROS_ENABLED:-true}`. Locally, the default in code is `False` unless set in `.env`.
 
 ---
 
 ## What it does
 
 - Subscribes to a Redis Stream (default: `task_stacks`) using a consumer group (default: `robots`).
-- For each `task_stack.created` (or `task_stack.pending`) event:
+- For each `task_stack.created` event:
   - Checks the device status (must be `online`).
   - Loads the corresponding task stack (`pending`).
   - Transitions it to `in_progress` and executes:
     - Non-ROS mode: logs simulated commands, then marks `completed` or `failed`.
     - ROS mode: uses a ROS 2 bridge (`app/core/ros_bridge.py`) to invoke `app/ros/middleware_node.py`, then marks `completed` or `failed`.
-- Acknowledges the stream message only after successful processing; errors cause retries.
+- Acknowledges the stream message after processing (success or failure). There are no automatic retries from the stream, failures are reflected in the DB status.
 
 Key modules:
 
-- `app/core/redis_consumer.py`: Redis XREADGROUP loop, message handling, ownership/status checks.
+- `app/main.py`: FastAPI app lifecycle (starts/stops the consumer and ROS bridge).
+- `app/core/redis_consumer.py`: Redis XREADGROUP loop, message handling, status checks.
 - `app/core/worker.py`: simulated executor (non-ROS).
 - `app/core/ros_worker.py`: ROS-backed executor.
 - `app/core/ros_bridge.py`: background ROS 2 executor thread + task dispatch helpers.
-- `app/core/models.py`: SQLAlchemy models aligned with the Postgres schema used by the gateway.
+- `app/core/models.py`: SQLAlchemy models aligned with the DB schema used by the gateway.
 - `app/core/config.py`: Pydantic Settings with `.env` support.
 
 ---
@@ -35,11 +38,11 @@ Key modules:
 
 Environment variables (see `.env.example`):
 
-- Gateway (used by the Backend Gateway via Compose)
-  - `JWT_SECRET` (default in example): secret used by the gateway to sign tokens
-  - `JWT_EXPIRES_IN` (default in example): token TTL for the gateway
-  - `GATEWAY_PORT` (default in example: `3000`): host port to expose the gateway
-  - `LOG_LEVEL` (default in example: `info`): gateway log level
+- Gateway (used by the Backend Gateway service via Compose)
+  - `JWT_SECRET`: secret used by the gateway to sign tokens
+  - `JWT_EXPIRES_IN`: token TTL for the gateway
+  - `GATEWAY_PORT` (default: `3000`): host port to expose the gateway
+  - `LOG_LEVEL` (default: `info`): gateway and middleware log level
 
 - Database (Compose inputs for both services)
   - `POSTGRES_HOST` (default in example: `localhost`)
@@ -49,7 +52,7 @@ Environment variables (see `.env.example`):
 
 - Database (middleware standalone)
   - `DATABASE_URL` (SQLAlchemy format): e.g. `postgresql+psycopg://user:pass@host:5432/db`
-    - Note: The Compose file constructs and injects the correct `DATABASE_URL` for the middleware based on the `POSTGRES_*` variables. You only need to set `DATABASE_URL` when running the middleware outside Compose.
+    - Compose injects the correct `DATABASE_URL` for the middleware from `POSTGRES_*`. Set `DATABASE_URL` only when running outside Compose.
 
 - Redis
   - `REDIS_URL` (default: `redis://localhost:6379` locally; `redis://redis:6379` in Compose)
@@ -57,19 +60,24 @@ Environment variables (see `.env.example`):
   - `TASK_STACK_CONSUMER_GROUP` (default: `robots`)
   - `TASK_STACK_CONSUMER_NAME` (default: `worker-1`)
 
-- ROS
-  - `ROS_ENABLED` (default: `false`): if `true`, starts the ROS 2 bridge and uses `ros_worker`
-  - `COMMAND_TOPIC_1`, `FEEDBACK_TOPIC_1`, `COMMAND_TOPIC_2`, `FEEDBACK_TOPIC_2`: topic names used by the ROS node(s)
+- ROS and devices
+  - `ROS_ENABLED` (default in code: `false`; Compose default: `true`)
+  - `DEVICES`: JSON list mapping device UUIDs to topics, for example:
+
+    `[ {"device_id": "<uuid>", "command_topic": "/robot_1/commands", "feedback_topic": "/robot_1/feedback" }, ... ]`
+
+    The middleware uses this mapping to publish commands and subscribe to feedback per device. See `.env.example` for two sample devices and `DEVICE_1`/`DEVICE_2` used by demo robots.
 
 Notes:
 
 - Place a `.env` file in the `robotics-middleware/` folder. `app/core/config.py` loads from `.env` automatically.
 - The DB models expect the same schema as the gateway’s `prisma/schema.prisma` and SQL init.
+- JSON values inside `.env` must be quoted. The example shows single-quoted values for convenience.
 
 Additional notes on URLs:
 
-- When running locally, `REDIS_URL` typically uses `redis://localhost:6379`. In Docker Compose, services use the internal host `redis://redis:6379`.
-- The middleware accepts SQLAlchemy-style `DATABASE_URL` (e.g., `postgresql+psycopg://user:pass@host:5432/db`). The gateway uses Prisma-style (e.g., `postgresql://user:pass@host:5432/db`). The compose file sets the correct format for each service automatically.
+- Locally, `REDIS_URL` typically uses `redis://localhost:6379`. In Docker Compose, services use `redis://redis:6379`.
+- The middleware accepts SQLAlchemy-style `DATABASE_URL` (e.g., `postgresql+psycopg://user:pass@host:5432/db`). The gateway uses Prisma-style (e.g., `postgresql://user:pass@host:5432/db`). Compose sets the correct format for each service automatically.
 
 ---
 
@@ -81,7 +89,7 @@ This folder includes a `docker-compose.yml` that starts:
 - Redis (`redis`)
 - Backend Gateway (`backend`) exposed on `${GATEWAY_PORT:-3000}`
 - Robotics Middleware (`middleware`) internal-only (no port exposed by default)
-- Two demo ROS containers (`robot_1`, `robot_2`) that simulate robot topics
+- Two demo ROS containers (`robot_1`, `robot_2`) that simulate robots
 
 ### Quick start
 
@@ -97,24 +105,20 @@ docker compose logs -f backend
 
 ### Notes
 
-- The demo ROS containers mount `../ros_robots/robot_1_node.py` and `../ros_robots/robot_2_node.py` and use topic env vars from `.env`.
-- The Gateway and Middleware share the same Postgres and Redis via the internal network configured by compose.
+- Demo robot containers build from `../ros_robot` and run the same `robot_node.py` with different `DEVICE` JSON env values (`DEVICE_1`, `DEVICE_2`).
+- The Gateway and Middleware share Postgres and Redis via the internal network configured by Compose.
 
 ---
 
-## Demo robots (`ros_robots/`)
+## Demo robots (`ros_robot/`)
 
-This repository includes two minimal demo robot nodes to help with local testing:
+This repo includes a minimal demo robot node used by both containers:
 
-- `../ros_robots/robot_1_node.py`
-- `../ros_robots/robot_2_node.py`
+- `../ros_robot/robot_node.py`
 
-They run in separate containers (`robot_1`, `robot_2`) based on `ros:jazzy-ros-core` and execute the scripts above. Topic names are provided via environment variables from `.env` and mapped in `docker-compose.yml`:
+Each robot container is passed a different `DEVICE` JSON via environment variables (`DEVICE_1` or `DEVICE_2`) to point it at its command/feedback topics.
 
-- Robot 1 uses `COMMAND_TOPIC_1` and `FEEDBACK_TOPIC_1` (defaults: `/robot_1/commands`, `/robot_1/feedback`).
-- Robot 2 uses `COMMAND_TOPIC_2` and `FEEDBACK_TOPIC_2` (defaults: `/robot_2/commands`, `/robot_2/feedback`).
-
-These are reference/demo nodes. Adapt them to match your real robots’ interfaces or replace them entirely in production.
+These are reference/demo nodes. Adapt them to match your robots’ interfaces or replace them entirely in production.
 
 ---
 
@@ -123,8 +127,8 @@ These are reference/demo nodes. Adapt them to match your real robots’ interfac
 See also: the ROS communication contract and message examples in [README.ROS.md](./README.ROS.md).
 
 - Logging uses Uvicorn’s logger (`uvicorn.error`) via `app/core/logging.py`.
-- Non-ROS execution simulates 1s per task. Adjust in `worker.py`.
-- ROS mapping: device names are mapped to `robot_1`/`robot_2` namespaces in `ros_worker.py`.
+- Non-ROS execution simulates ~1s per task. Adjust in `app/core/worker.py`.
+- ROS device mapping is driven by `DEVICES` (device UUID -> topics) and handled by `app/ros/middleware_node.py`.
 - Consumer group creation is idempotent (`XGROUP CREATE MKSTREAM`); BUSYGROUP errors are ignored.
 
 ---
@@ -134,12 +138,12 @@ See also: the ROS communication contract and message examples in [README.ROS.md]
 1. Client calls the gateway: `POST /api/device/stack`, DB insert (status `pending`) and `XADD` on `task_stacks`.
 2. Middleware consumes the stream entry:
 
-    - Validates device online status and ownership
+    - Validates device online status
     - Loads `pending` stack
     - Marks `in_progress`
     - Executes (ROS or simulated)
     - Updates to `completed` or `failed`
-    - `XACK` message
+    - Always `XACK` the message after processing
 
 If the middleware is offline, entries remain in the stream and will be processed when it starts.
 
@@ -147,6 +151,6 @@ If the middleware is offline, entries remain in the stream and will be processed
 
 ## API reference
 
-For the **full set of endpoints** and **end-to-end pipeline cURL examples**, see the Backend Gateway API docs:
+For the endpoints and end-to-end pipeline cURL examples, see the Backend Gateway API docs:
 
 - [Backend Gateway API](../backend-gateway/README.API.md)

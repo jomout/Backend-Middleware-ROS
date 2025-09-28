@@ -15,30 +15,22 @@ ON CONFLICT (email) DO NOTHING;
 
 -- Devices ---------------------------------------------------------
 -- Device for User1
-INSERT INTO devices (name, status, user_id)
-SELECT 'robot_1', 'online', u.user_id
+INSERT INTO devices (device_id, name, status, user_id)
+SELECT '18f2d2a4-d391-4346-8dc2-2f195b05d52a', 'robot_1', 'online', u.user_id
 FROM users u
-WHERE u.email = 'user1@example.com'
-  AND NOT EXISTS (
-    SELECT 1 FROM devices d WHERE d.name = 'robot_1' AND d.user_id = u.user_id
-  );
+WHERE u.email = 'user1@example.com';
 
-INSERT INTO devices (name, status, user_id)
-SELECT 'robot_3', 'offline', u.user_id
+INSERT INTO devices (device_id, name, status, user_id)
+SELECT 'ab1e7619-b3d1-474d-9d95-90e84598ee7d', 'robot_3', 'offline', u.user_id
 FROM users u
-WHERE u.email = 'user1@example.com'
-  AND NOT EXISTS (
-    SELECT 1 FROM devices d WHERE d.name = 'robot_3' AND d.user_id = u.user_id
-  );
+WHERE u.email = 'user1@example.com';
 
 -- Device for User2
-INSERT INTO devices (name, status, user_id)
-SELECT 'robot_2', 'online', u.user_id
+INSERT INTO devices (device_id, name, status, user_id)
+SELECT 'a3369c60-c84d-49d5-85b8-972d007f8933', 'robot_2', 'online', u.user_id
 FROM users u
-WHERE u.email = 'user2@example.com'
-  AND NOT EXISTS (
-    SELECT 1 FROM devices d WHERE d.name = 'robot_2' AND d.user_id = u.user_id
-  );
+WHERE u.email = 'user2@example.com';
+
 
 -- Task stacks -----------------------------------------------------
 -- Seed a couple of stacks for user1 robot_1
@@ -48,10 +40,7 @@ SELECT d.device_id,
        'completed'
 FROM devices d
 JOIN users u ON u.user_id = d.user_id
-WHERE u.email = 'user1@example.com' AND d.name = 'robot_1'
-  AND NOT EXISTS (
-    SELECT 1 FROM task_stacks s WHERE s.device_id = d.device_id AND s.status = 'completed'
-  );
+WHERE u.email = 'user1@example.com' AND d.device_id = '18f2d2a4-d391-4346-8dc2-2f195b05d52a';
 
 -- One stack for user2 robot_3
 INSERT INTO task_stacks (device_id, tasks, status)
@@ -60,7 +49,4 @@ SELECT d.device_id,
        'completed'
 FROM devices d
 JOIN users u ON u.user_id = d.user_id
-WHERE u.email = 'user2@example.com' AND d.name = 'robot_2'
-  AND NOT EXISTS (
-    SELECT 1 FROM task_stacks s WHERE s.device_id = d.device_id AND s.status = 'completed'
-  );
+WHERE u.email = 'user2@example.com' AND d.device_id = 'a3369c60-c84d-49d5-85b8-972d007f8933';
