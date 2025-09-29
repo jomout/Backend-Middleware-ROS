@@ -29,7 +29,7 @@ export const taskSchema = z.discriminatedUnion('type', [pickTaskSchema, placeTas
  * Schema for creating a task stack
  */
 export const createTaskStackBodySchema = z.object({
-  deviceId: z.string().min(1).optional(),
+  deviceId: z.uuid().optional(),
   tasks: z.array(taskSchema).min(1, 'tasks must be a non-empty array'),
 });
 

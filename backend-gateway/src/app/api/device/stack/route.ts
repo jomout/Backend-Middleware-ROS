@@ -6,6 +6,7 @@ import type { CreateTaskStackResponseDto } from "@/dtos/api";
 import { errorResponse } from "@/lib/validation";
 import { redis, TASK_STACK_STREAM } from "@/lib/redis";
 import { logger } from "@/lib/logger";
+import { flattenError } from "zod";
 
 /**
  * Create a new task stack for a device.
@@ -25,8 +26,8 @@ export async function POST(request: NextRequest) {
   // Validate request body
   const parseResult = createTaskStackBodySchema.safeParse(await request.json().catch(() => ({})));
   if (!parseResult.success) {
-    log.warn('Validation error', { details: parseResult.error.flatten() });
-    return errorResponse('Validation error', 400, parseResult.error.flatten());
+    log.warn('Validation error', { details: flattenError(parseResult.error) });
+    return errorResponse('Validation error', 400, flattenError(parseResult.error));
   }
   const { deviceId, tasks } = parseResult.data;
 
