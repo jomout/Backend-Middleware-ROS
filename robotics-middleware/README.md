@@ -4,8 +4,8 @@ A FastAPI-based worker service that consumes task events from Redis Streams, coo
 
 This middleware can run in two modes:
 
-- Non-ROS mode (default in code): simulates execution and marks stacks completed/failed.
-- ROS mode: starts a background ROS 2 executor and dispatches tasks to a ROS node.
+- **Non-ROS mode**: simulates execution and marks stacks completed/failed.
+- **ROS mode**: starts a background ROS 2 executor and dispatches tasks to a ROS node.
 
 Note: In Docker Compose, ROS is enabled by default via `ROS_ENABLED: ${ROS_ENABLED:-true}`. Locally, the default in code is `False` unless set in `.env`.
 
@@ -13,13 +13,15 @@ Note: In Docker Compose, ROS is enabled by default via `ROS_ENABLED: ${ROS_ENABL
 
 ## What it does
 
-- Subscribes to a Redis Stream (default: `task_stacks`) using a consumer group (default: `robots`).
-- For each `task_stack.created` event:
-  - Checks the device status (must be `online`).
-  - Loads the corresponding task stack (`pending`).
-  - Transitions it to `in_progress` and executes:
-    - Non-ROS mode: logs simulated commands, then marks `completed` or `failed`.
-    - ROS mode: uses a ROS 2 bridge (`app/core/ros_bridge.py`) to invoke `app/ros/middleware_node.py`, then marks `completed` or `failed`.
+Subscribes to a Redis Stream (default: `task_stacks`) using a consumer group (default: `robots`).
+
+For each `task_stack.created` event:
+
+- Checks the device status (must be `online`).
+- Loads the corresponding task stack (`pending`) from database.
+- Transitions it to `in_progress` and executes:
+  - **Non-ROS mode**: logs simulated commands, then marks `completed` or `failed`.
+  - **ROS mode**: uses a ROS 2 bridge (`app/core/ros_bridge.py`) to invoke `app/ros/middleware_node.py`, then marks `completed` or `failed`.
 - Acknowledges the stream message after processing (success or failure). There are no automatic retries from the stream, failures are reflected in the DB status.
 
 Key modules:
@@ -45,7 +47,6 @@ Environment variables (see `.env.example`):
   - `LOG_LEVEL` (default: `info`): gateway and middleware log level
 
 - Database (Compose inputs for both services)
-  - `POSTGRES_HOST` (default in example: `localhost`)
   - `POSTGRES_USER` (default in example: `user`)
   - `POSTGRES_PASSWORD` (default in example: `password`)
   - `POSTGRES_DB` (default in example: `db`)

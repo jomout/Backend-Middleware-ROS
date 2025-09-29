@@ -135,7 +135,7 @@ Middleware treats the stack as successful only if all tasks complete. Any `task.
 
 ## Error modes and edge cases
 
-- Non-JSON message: ignored; a warning is logged (middleware and demo robots both guard with JSON parsing).
+- Non-JSON message: ignored. A warning is logged (middleware and demo robots both guard with JSON parsing). Because of timeout configuration, the stack gets updated in the database as status `failed`.
 - Unknown `device_id` (no publisher configured): middleware logs an error and does not publish.
 - Unknown task `type`: middleware logs an error and fails the stack.
 - Feedback with missing `stackId`/`taskIndex`: ignored for correlation.
