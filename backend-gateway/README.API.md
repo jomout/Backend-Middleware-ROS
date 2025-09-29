@@ -78,7 +78,7 @@ Create a new task stack for a device owned by the authenticated user.
 
   ```json
   {
-    "deviceId": "dev_1", // optional if the user owns exactly one device
+    "deviceId": "18f2d2a4-d391-4346-8dc2-2f195b05d52a",
     "tasks": [
       { "type": "pick", "from": { "x": 1, "y": 2, "z": 3 } },
       { "type": "place", "to": { "x": 4, "y": 5, "z": 6 } }
@@ -131,7 +131,7 @@ Create a new task stack for a device owned by the authenticated user.
       -H 'Content-Type: application/json' \
       -H "Authorization: Bearer $TOKEN" \
       -d '{
-        "deviceId": "dev_1",
+        "deviceId": "18f2d2a4-d391-4346-8dc2-2f195b05d52a",
         "tasks": [
           { "type": "pick", "from": { "x": 1, "y": 2, "z": 3 } },
           { "type": "place", "to": { "x": 4, "y": 5, "z": 6 } }
@@ -162,8 +162,8 @@ Return a summary for all devices belonging to the authenticated user, including 
   ```json
   [
     {
-      "deviceId": "dev_1",
-      "name": "device1",
+      "deviceId": "18f2d2a4-d391-4346-8dc2-2f195b05d52a",
+      "name": "robot_1",
       "status": "online",
       "pendingTasks": 2,
       "activeTasks": 1
@@ -223,4 +223,4 @@ Return a summary for all devices belonging to the authenticated user, including 
 - Authentication uses JWT Bearer tokens. See `src/lib/auth.ts` and the auth endpoints above.
 - Validation is powered by Zod. Errors return a unified `{ error, details }` payload.
 - Persistence is implemented with Prisma (Postgres). See `prisma/schema.prisma` and `.env.example`.
-  - JWT config via `JWT_SECRET` and `JWT_EXPIRES_IN`.
+- JWT config via `JWT_SECRET` and `JWT_EXPIRES_IN`.
