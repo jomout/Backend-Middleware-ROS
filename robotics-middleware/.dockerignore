@@ -26,3 +26,5 @@ Thumbs.db
 # README files
 README*
 
+__pycache__
+
