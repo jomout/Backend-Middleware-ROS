@@ -49,6 +49,8 @@ See individual **READMEs** for instructions.
 
 ## Notes
 
-- Parts are split into separate projects/folders as requested.  
+- Parts are split into separate projects/folders as requested.
+- `database` folder contains database schema.
+- `ros_robots` folder contains a simple ROS robot implementation.
 - Part 4 lives inside the Robotics Middleware project.
 - Each part’s **README** contains detailed setup, usage, and design notes.

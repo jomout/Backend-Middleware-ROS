@@ -150,6 +150,14 @@ If the middleware is offline, entries remain in the stream and will be processed
 
 ---
 
+## Assumptions
+
+- We assume that the robots marked as **online** in the database correspond to the ones that are actually launched in containers. This is why their IDs are the same across the system.
+
+- In a real-world setup, the robots and the middleware would be deployed on a separate network from the rest of the system. For demonstration purposes, this separation was omitted.
+
+---
+
 ## API reference
 
 For the endpoints and end-to-end pipeline cURL examples, see the Backend Gateway API docs:
