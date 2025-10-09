@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import type { GetDeviceSummaryResponseDto } from "@/dtos/api";
 import { errorResponse } from "@/lib/validation";
 import { logger } from "@/lib/logger";
+import { DeviceStatus } from "@/dtos/entities";
 
 /**
  * Get a summary of devices for the authenticated user.
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
   const response: GetDeviceSummaryResponseDto = devices.map((d: { deviceId: string; name: string; status: string }) => ({
     deviceId: d.deviceId,
     name: d.name,
-    status: d.status as any,
+    status: d.status as DeviceStatus,
     pendingTasks: counts.get(d.deviceId)!.pending,
     activeTasks: counts.get(d.deviceId)!.in_progress,
   }));
